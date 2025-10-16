@@ -1,0 +1,8 @@
+.colChange {
+  color: blue; /* Set the text color to blue */
+  text-decoration: underline; /* Optionally, add underline for clarity */
+}
+
+.colChange:hover {
+  color: darkblue; /* Change color on hover if desired */
+}
