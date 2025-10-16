@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: InspireX-web
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: MONGODB_URI
+        fromDatabase: null
+      - key: FRONTEND_ORIGIN
+        value: "https://your-frontend-url.render.com"

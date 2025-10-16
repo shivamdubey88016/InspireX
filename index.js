@@ -9,27 +9,75 @@ const investorRegister = require("./models/investorRegister.js");
 const startupStatus = require("./models/startupStatus.js");
 const posts = require("./models/posts.js");
 const methodOverride = require("method-override");
-const port = 8080;
+// Load local .env in development
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
+
+// Centralized config
+const port = process.env.PORT || 8080;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+// In development allow a local fallback DB; in production MONGODB_URI must be provided
+const MONGODB_URI = process.env.MONGODB_URI || (NODE_ENV === 'production' ? null : 'mongodb://127.0.0.1:27017/inspirex_dev');
 const cors = require("cors");
-app.use(cors());
+
+// Fail fast in production when MONGODB_URI is missing
+if (NODE_ENV === 'production' && !MONGODB_URI) {
+  console.error('Missing required environment variable: MONGODB_URI');
+  process.exit(1);
+}
+
+// Use stricter CORS in production
+if (NODE_ENV === 'production') {
+  app.use(cors({ origin: FRONTEND_ORIGIN }));
+} else {
+  app.use(cors());
+}
 const multer = require("multer");
 const upload = multer({ dest: "./uploads" });
 const filePath = path.join(__dirname, "Frontend/public/data.json");
 app.use(bodyParser.urlencoded({ extended: false }));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "/"));
-app.use(express.static(__dirname + "/"));
+// Serve static files from the built frontend when available (Render will run `npm run build`)
+const frontendDist = path.join(__dirname, "Frontend", "dist");
+if (fs.existsSync(frontendDist)) {
+  // Serve the built SPA first
+  app.use(express.static(frontendDist));
+  // Also serve repository static files so EJS templates referencing paths like
+  // /Frontend/css/... or /vendor/... continue to work
+  app.use(express.static(__dirname));
+} else {
+  // during local development serve the repository root static files
+  app.use(express.static(__dirname));
+}
+
+// Ensure uploaded images are accessible at /uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride("_method"));
-main()
-  .then(() => {
-    console.log("connected");
-  })
-  .catch((err) => console.log(err));
+// Connect to MongoDB and start server
+async function start() {
+  try {
+    console.log(`NODE_ENV=${NODE_ENV}`);
+    console.log(`FRONTEND_ORIGIN=${FRONTEND_ORIGIN}`);
+    console.log(`Attempting to connect to MongoDB...`);
+    await mongoose.connect(MONGODB_URI, { keepAlive: true });
+    console.log('Connected to MongoDB');
 
-async function main() {
-  await mongoose.connect("mongodb+srv://shivamdubey88016_db_user:lgwWzknlCFyok3dF@inspirex.drh7pjr.mongodb.net/?retryWrites=true&w=majority&appName=InspireX");
+    // Start listening after DB connection
+    app.listen(port, () => {
+      console.log(`Server is listening on port ${port}`);
+    });
+  } catch (err) {
+    console.error('Failed to start application:', err);
+    // In production exit so the platform (Render) can restart
+    if (NODE_ENV === 'production') process.exit(1);
+  }
 }
+
+start();
 
 //render to startup register form
 app.get("/startupRegister", (req, res) => {
@@ -199,7 +247,7 @@ app.post("/startupAuthenticate", async function (req, res) {
       const result = req.body.password === user.password;
       if (result) {
         console.log(user);
-        res.redirect(`http://localhost:3000/dashboard?name=${user.name}`);
+  res.redirect(`${FRONTEND_ORIGIN}/dashboard?name=${encodeURIComponent(user.name)}`);
       } else {
         res.render("/startupRegister");
       }
@@ -278,7 +326,7 @@ app.get("/send-data", async (req, res) => {
     console.log("pull");
   addPostDataToJson(allObjs);
   //   res.render("Backend/posts.ejs",{newPost});
-  res.redirect("http://localhost:3000/post");
+  res.redirect(`${FRONTEND_ORIGIN}/post`);
 });
 app.get("/sendPosData", async (req, res) => {
   const { name, message } = req.query;
@@ -302,7 +350,7 @@ app.get("/sendPosData", async (req, res) => {
     console.log("pull");
   addPostDataToJson(allObjs);
   //   res.render("Backend/posts.ejs",{newPost});
-  res.redirect("http://localhost:3000/post");
+  res.redirect(`${FRONTEND_ORIGIN}/post`);
 });
 app.post("/investorAuthenticate", async (req, res) => {
   try {
@@ -315,7 +363,7 @@ app.post("/investorAuthenticate", async (req, res) => {
         const user = await investorRegister.findOne({ email: req.body.email });
         console.log(user);
         res.redirect(
-          `http://localhost:3000/investordashboard/profile?name=${user.name}`
+    `${FRONTEND_ORIGIN}/investordashboard/profile?name=${encodeURIComponent(user.name)}`
         );
       } else {
         res.render("/investorRegister");
@@ -364,7 +412,7 @@ app.get("/authlogin", (req, res) => {
 
 app.post("/govLogin", (req, res) => {
   if (req.body.email == "gov0707@gmail.com" && req.body.password == "12345") {
-    res.redirect("http://localhost:3000/startupStatus");
+  res.redirect(`${FRONTEND_ORIGIN}/startupStatus`);
   } else {
     res.send("wrong");
   }
@@ -382,10 +430,10 @@ app.get('/post-profile', async (req, res) => {
 
   if (data) {
     console.log("Redirecting to dashboard profile...");
-    return res.redirect(`http://localhost:3000/dashboard/profile?name=${data.name}`);
+  return res.redirect(`${FRONTEND_ORIGIN}/dashboard/profile?name=${encodeURIComponent(data.name)}`);
   } else if (data1) {
     console.log("Redirecting to investor dashboard profile...");
-    return res.redirect(`http://localhost:3000/investordashboard/profile?name=${data1.name}`);
+  return res.redirect(`${FRONTEND_ORIGIN}/investordashboard/profile?name=${encodeURIComponent(data1.name)}`);
   } else {
     console.log("User not found in either database.");
     return res.status(404).send("User not found");
@@ -416,8 +464,9 @@ app.get('/post-profile', async (req, res) => {
 //   //   res.render("Backend/posts.ejs",{newPost});
 //   res.redirect("http://localhost:3000/post");
 // });
-app.listen(8080, () => {
-  console.log("server is listening on port 8080");
+// Start server on configured port
+app.listen(port, () => {
+  console.log(`server is listening on port ${port}`);
 });
 // Middleware
 app.use(cors());
