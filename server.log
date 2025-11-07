@@ -267,3 +267,8 @@ Failed to start application: MongoParseError: option keepalive is not supported
     __v: 0
   }
 ]
+POST /govLogin body: [Object: null prototype] {
+  email: 'shivamdubey88016@gmail.com',
+  password: '12345'
+}
+Government login success for shivamdubey88016@gmail.com

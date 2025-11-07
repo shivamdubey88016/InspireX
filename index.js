@@ -411,10 +411,27 @@ app.get("/authlogin", (req, res) => {
 });
 
 app.post("/govLogin", (req, res) => {
-  if (req.body.email == "shivamdubey88016@gmail.com" && req.body.password == "12345") {
-  res.redirect(`${FRONTEND_ORIGIN}/startupStatus`);
+  // Debug incoming body to help trace mismatches
+  console.log('POST /govLogin body:', req.body);
+
+  const rawEmail = req.body && req.body.email ? String(req.body.email) : '';
+  const rawPassword = req.body && req.body.password ? String(req.body.password) : '';
+
+  const email = rawEmail.trim().toLowerCase();
+  const password = rawPassword.trim();
+
+  // Allowed government login emails (normalize to lowercase)
+  const validEmails = [
+    'shivamdubey88016@gmail.com',
+    'gov0707@gmail.com'
+  ];
+
+  if (validEmails.includes(email) && password === '12345') {
+    console.log('Government login success for', email);
+    return res.redirect(`${FRONTEND_ORIGIN}/startupStatus`);
   } else {
-    res.send("wrong");
+    console.log('Government login failed for', email);
+    return res.send('wrong');
   }
 });
 app.get('/post-profile', async (req, res) => {
