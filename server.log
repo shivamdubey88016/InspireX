@@ -1,4 +1,24 @@
+
+> start
+> node index.js
+
+NODE_ENV=development
+FRONTEND_ORIGIN=http://localhost:3000
+Attempting to connect to MongoDB...
 server is listening on port 8080
+Failed to start application: MongoParseError: option keepalive is not supported
+    at parseOptions (/Users/shivamdubey/Public/college mini project/SIH-2024/node_modules/mongodb/lib/connection_string.js:272:15)
+    at new MongoClient (/Users/shivamdubey/Public/college mini project/SIH-2024/node_modules/mongodb/lib/mongo_client.js:51:63)
+    at NativeConnection.createClient (/Users/shivamdubey/Public/college mini project/SIH-2024/node_modules/mongoose/lib/drivers/node-mongodb-native/connection.js:306:14)
+    at NativeConnection.openUri (/Users/shivamdubey/Public/college mini project/SIH-2024/node_modules/mongoose/lib/connection.js:823:34)
+    at Mongoose.connect (/Users/shivamdubey/Public/college mini project/SIH-2024/node_modules/mongoose/lib/mongoose.js:447:15)
+    at start (/Users/shivamdubey/Public/college mini project/SIH-2024/index.js:66:20)
+    at Object.<anonymous> (/Users/shivamdubey/Public/college mini project/SIH-2024/index.js:80:1)
+    at Module._compile (node:internal/modules/cjs/loader:1760:14)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1480:32) {
+  Symbol(errorLabels): Set(0) {}
+}
 [
   {
     _id: '66db3c1b09acff07fc27f88a',
@@ -247,26 +267,3 @@ server is listening on port 8080
     __v: 0
   }
 ]
-MongooseServerSelectionError: Could not connect to any servers in your MongoDB Atlas cluster. One common reason is that you're trying to access the database from an IP that isn't whitelisted. Make sure your current IP address is on your Atlas cluster's IP whitelist: https://www.mongodb.com/docs/atlas/security-whitelist/
-    at _handleConnectionErrors (/Users/shivamdubey/Public/college mini project/SIH-2024/node_modules/mongoose/lib/connection.js:897:11)
-    at NativeConnection.openUri (/Users/shivamdubey/Public/college mini project/SIH-2024/node_modules/mongoose/lib/connection.js:848:11)
-    at async main (/Users/shivamdubey/Public/college mini project/SIH-2024/index.js:45:3) {
-  reason: TopologyDescription {
-    type: 'ReplicaSetNoPrimary',
-    servers: Map(3) {
-      'ac-w3kdfot-shard-00-00.drh7pjr.mongodb.net:27017' => [ServerDescription],
-      'ac-w3kdfot-shard-00-02.drh7pjr.mongodb.net:27017' => [ServerDescription],
-      'ac-w3kdfot-shard-00-01.drh7pjr.mongodb.net:27017' => [ServerDescription]
-    },
-    stale: false,
-    compatible: true,
-    heartbeatFrequencyMS: 10000,
-    localThresholdMS: 15,
-    setName: 'atlas-xzatmr-shard-0',
-    maxElectionId: null,
-    maxSetVersion: null,
-    commonWireVersion: 0,
-    logicalSessionTimeoutMinutes: null
-  },
-  code: undefined
-}

@@ -411,7 +411,7 @@ app.get("/authlogin", (req, res) => {
 });
 
 app.post("/govLogin", (req, res) => {
-  if (req.body.email == "gov0707@gmail.com" && req.body.password == "12345") {
+  if (req.body.email == "shivamdubey88016@gmail.com" && req.body.password == "12345") {
   res.redirect(`${FRONTEND_ORIGIN}/startupStatus`);
   } else {
     res.send("wrong");
