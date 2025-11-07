@@ -82,11 +82,11 @@ export default function ResearchFooter() {
             <img src="./satymev.jfif" className={styles.roundd}></img>
             <div className=" d-flex flex-column">
               <h6>Ministry of commerce and industry</h6>
-              <h6>Government of Gujarat</h6>
+              <h6>Government of INDIA</h6>
             </div>
           </div>
           <div className="text-center p-3">
-            © 2024 InnoHub Gujarat.All rights Reserved.
+            InnoHub INDIA.All rights Reserved.
           </div>
         </div>
       </div>
