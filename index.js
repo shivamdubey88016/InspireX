@@ -62,9 +62,11 @@ async function start() {
   try {
     console.log(`NODE_ENV=${NODE_ENV}`);
     console.log(`FRONTEND_ORIGIN=${FRONTEND_ORIGIN}`);
-    console.log(`Attempting to connect to MongoDB...`);
-    await mongoose.connect(MONGODB_URI, { keepAlive: true });
-    console.log('Connected to MongoDB');
+  console.log(`Attempting to connect to MongoDB...`);
+  // Recent MongoDB drivers no longer accept the legacy `keepAlive` option via
+  // mongoose.connect; omit it and let the driver manage connection keepalive.
+  await mongoose.connect(MONGODB_URI);
+  console.log('Connected to MongoDB');
 
     // Start listening after DB connection
     app.listen(port, () => {
@@ -239,23 +241,56 @@ app.post("/startupDataSave", upload.single("img"), (req, res) => {
 //login-authentication
 
 app.post("/startupAuthenticate", async function (req, res) {
+  console.log('POST /startupAuthenticate body:', req.body);
+  const email = req.body && req.body.email ? String(req.body.email).trim() : '';
+  const password = req.body && req.body.password ? String(req.body.password).trim() : '';
+
+  // Helper: check DB connection
+  const dbConnected = mongoose.connection && mongoose.connection.readyState === 1;
+
   try {
-    // check if the user exists
-    const user = await startupRegister.findOne({ email: req.body.email });
-    if (user) {
-      //check if password matches
-      const result = req.body.password === user.password;
-      if (result) {
-        console.log(user);
-  res.redirect(`${FRONTEND_ORIGIN}/dashboard?name=${encodeURIComponent(user.name)}`);
-      } else {
-        res.render("/startupRegister");
+    if (dbConnected) {
+      // check if the user exists in DB
+      const user = await startupRegister.findOne({ email: email });
+      if (user) {
+        const result = password === user.password;
+        if (result) {
+          console.log('DB startup login success for', email);
+          if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
+            return res.redirect(`/dashboard?name=${encodeURIComponent(user.name)}`);
+          }
+          return res.redirect(`${FRONTEND_ORIGIN}/dashboard?name=${encodeURIComponent(user.name)}`);
+        }
+        return res.redirect('/startupRegister');
       }
-    } else {
-      res.render("/startupRegister");
+      return res.redirect('/startupRegister');
     }
+
+    // Fallback: read local JSON file if DB is not connected
+    console.log('DB not connected — using local JSON fallback for startupAuthenticate');
+    const localPath = path.join(__dirname, 'data.json');
+    let json = null;
+    try {
+      const raw = fs.readFileSync(localPath, 'utf8');
+      json = JSON.parse(raw);
+    } catch (e) {
+      console.error('Failed to read local startup data fallback:', e.message);
+      return res.status(500).send('Server error');
+    }
+    // data.json may be an array or object — normalize
+    const users = Array.isArray(json) ? json : Object.values(json || {});
+    const found = users.find(u => u.email === email && String(u.password) === password);
+    if (found) {
+      console.log('Local fallback startup login success for', email);
+      if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
+        return res.redirect(`/dashboard?name=${encodeURIComponent(found.name)}`);
+      }
+      return res.redirect(`${FRONTEND_ORIGIN}/dashboard?name=${encodeURIComponent(found.name)}`);
+    }
+    return res.redirect('/startupRegister');
   } catch (error) {
-    res.status(400).json({ error });
+    console.error('startupAuthenticate error:', error);
+    res.status(400).json({ error: error && error.message ? error.message : 'unknown error' });
   }
 });
 
@@ -353,26 +388,52 @@ app.get("/sendPosData", async (req, res) => {
   res.redirect(`${FRONTEND_ORIGIN}/post`);
 });
 app.post("/investorAuthenticate", async (req, res) => {
+  console.log('POST /investorAuthenticate body:', req.body);
+  const email = req.body && req.body.email ? String(req.body.email).trim() : '';
+  const password = req.body && req.body.password ? String(req.body.password).trim() : '';
+
+  const dbConnected = mongoose.connection && mongoose.connection.readyState === 1;
   try {
-    // check if the user exists
-    const user = await investorRegister.findOne({ email: req.body.email });
-    if (user) {
-      //check if password matches
-      const result = req.body.password === user.password;
-      if (result) {
-        const user = await investorRegister.findOne({ email: req.body.email });
-        console.log(user);
-        res.redirect(
-    `${FRONTEND_ORIGIN}/investordashboard/profile?name=${encodeURIComponent(user.name)}`
-        );
-      } else {
-        res.render("/investorRegister");
+    if (dbConnected) {
+      const user = await investorRegister.findOne({ email: email });
+      if (user) {
+        const result = password === user.password;
+        if (result) {
+          console.log('DB investor login success for', email);
+          if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
+            return res.redirect(`/investordashboard/profile?name=${encodeURIComponent(user.name)}`);
+          }
+          return res.redirect(`${FRONTEND_ORIGIN}/investordashboard/profile?name=${encodeURIComponent(user.name)}`);
+        }
+        return res.redirect('/investorRegister');
       }
-    } else {
-      res.render("/investorRegister");
+      return res.redirect('/investorRegister');
     }
+
+    // Fallback to local JSON when DB is down
+    console.log('DB not connected — using local JSON fallback for investorAuthenticate');
+    const localPath = path.join(__dirname, 'Frontend', 'public', 'investorData.json');
+    let json = null;
+    try {
+      const raw = fs.readFileSync(localPath, 'utf8');
+      json = JSON.parse(raw);
+    } catch (e) {
+      console.error('Failed to read local investor data fallback:', e.message);
+      return res.status(500).send('Server error');
+    }
+    const users = Array.isArray(json) ? json : (json.items1 || Object.values(json));
+    const found = users.find(u => u.email === email && String(u.password) === password);
+    if (found) {
+      console.log('Local fallback investor login success for', email);
+      if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
+        return res.redirect(`/investordashboard/profile?name=${encodeURIComponent(found.name)}`);
+      }
+      return res.redirect(`${FRONTEND_ORIGIN}/investordashboard/profile?name=${encodeURIComponent(found.name)}`);
+    }
+    return res.render("/investorRegister");
   } catch (error) {
-    res.status(400).json({ error });
+    console.error('investorAuthenticate error:', error);
+    return res.status(400).json({ error: error && error.message ? error.message : 'unknown error' });
   }
 });
 
@@ -428,12 +489,24 @@ app.post("/govLogin", (req, res) => {
 
   if (validEmails.includes(email) && password === '12345') {
     console.log('Government login success for', email);
+    if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
+      return res.redirect('/startupStatus');
+    }
     return res.redirect(`${FRONTEND_ORIGIN}/startupStatus`);
   } else {
     console.log('Government login failed for', email);
     return res.send('wrong');
   }
 });
+
+// SPA fallback: when frontend is built, serve index.html for client routes
+if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
+  const spaApiPrefixes = ['/startupRegister','/startupLogin','/startupDataSave','/startupAuthenticate','/investorRegister','/investorLogin','/investorDataSave','/investorAuthenticate','/govLogin','/authlogin','/uploads','/Backend','/send-data','/sendPosData','/post-profile'];
+  app.get('*', (req, res, next) => {
+    if (spaApiPrefixes.some(p => req.path.startsWith(p))) return next();
+    return res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
 app.get('/post-profile', async (req, res) => {
   const email = req.query.email;
 
