@@ -17,7 +17,8 @@ if (process.env.NODE_ENV !== 'production') {
 // Centralized config
 const port = process.env.PORT || 8080;
 const NODE_ENV = process.env.NODE_ENV || 'development';
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+// In production, if FRONTEND_ORIGIN is not set, use the request origin or default
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000';
 // In development allow a local fallback DB; in production MONGODB_URI must be provided
 const MONGODB_URI = process.env.MONGODB_URI || (NODE_ENV === 'production' ? null : 'mongodb://127.0.0.1:27017/inspirex_dev');
 const cors = require("cors");
@@ -28,21 +29,57 @@ if (NODE_ENV === 'production' && !MONGODB_URI) {
   process.exit(1);
 }
 
-// Use stricter CORS in production
-if (NODE_ENV === 'production') {
-  app.use(cors({ origin: FRONTEND_ORIGIN }));
-} else {
-  app.use(cors());
-}
+// CORS configuration - since backend serves frontend, they're on same origin
+// But we still enable CORS for API flexibility
+app.use(cors({
+  origin: NODE_ENV === 'production' ? FRONTEND_ORIGIN : true,
+  credentials: true
+}));
 const multer = require("multer");
-const upload = multer({ dest: "./uploads" });
+// Support optional S3 uploads in production. If S3 environment variables are
+// provided we use memoryStorage and upload the file to S3; otherwise use
+// the local `uploads/` directory (good for local development).
+let upload;
+let s3Client = null;
+let PutObjectCommand = null;
+const USE_S3 = !!(process.env.S3_BUCKET && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+if (USE_S3) {
+  try {
+    const { S3Client, PutObjectCommand: _Put } = require("@aws-sdk/client-s3");
+    s3Client = new S3Client({
+      region: process.env.AWS_REGION || "us-east-1",
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      },
+    });
+    PutObjectCommand = _Put;
+    upload = multer({ storage: multer.memoryStorage() });
+    console.log('S3 uploads enabled');
+  } catch (e) {
+    console.error('Failed to initialize S3 client, falling back to local uploads', e);
+    upload = multer({ dest: "./uploads" });
+  }
+} else {
+  upload = multer({ dest: "./uploads" });
+}
 const filePath = path.join(__dirname, "Frontend/public/data.json");
 app.use(bodyParser.urlencoded({ extended: false }));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "/"));
 // Serve static files from the built frontend when available (Render will run `npm run build`)
 const frontendDist = path.join(__dirname, "Frontend", "dist");
-if (fs.existsSync(frontendDist)) {
+const isFrontendBuilt = fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'));
+
+// Helper function to get redirect URL - use relative path if frontend is built, otherwise use FRONTEND_ORIGIN
+function getRedirectUrl(path) {
+  if (isFrontendBuilt) {
+    return path; // Relative path when frontend is served by backend
+  }
+  return `${FRONTEND_ORIGIN}${path.startsWith('/') ? path : '/' + path}`;
+}
+
+if (isFrontendBuilt) {
   // Serve the built SPA first
   app.use(express.static(frontendDist));
   // Also serve repository static files so EJS templates referencing paths like
@@ -57,16 +94,78 @@ if (fs.existsSync(frontendDist)) {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride("_method"));
+// MongoDB connection event handlers for graceful reconnection
+mongoose.connection.on('disconnected', () => {
+  console.warn('[MongoDB] Disconnected. Will attempt to reconnect...');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('[MongoDB] Connection error:', err.message);
+  // Attempt reconnect after a delay
+  setTimeout(() => {
+    console.log('[MongoDB] Attempting to reconnect...');
+    mongoose.connect(MONGODB_URI).catch(e => console.error('[MongoDB] Reconnect failed:', e.message));
+  }, 5000);
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('[MongoDB] Reconnected successfully');
+});
+
+// Ensure required directories and files exist
+function ensureDirectoriesAndFiles() {
+  // Create uploads directory if it doesn't exist
+  const uploadsDir = path.join(__dirname, 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('Created uploads directory');
+  }
+
+  // Ensure Frontend/public JSON files exist with proper structure
+  const publicDir = path.join(__dirname, 'Frontend', 'public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+
+  const dataJsonPath = path.join(publicDir, 'data.json');
+  if (!fs.existsSync(dataJsonPath)) {
+    fs.writeFileSync(dataJsonPath, JSON.stringify({ items: [] }, null, 2));
+  }
+
+  const investorDataJsonPath = path.join(publicDir, 'investorData.json');
+  if (!fs.existsSync(investorDataJsonPath)) {
+    fs.writeFileSync(investorDataJsonPath, JSON.stringify({ items1: [] }, null, 2));
+  }
+
+  const postsJsonPath = path.join(publicDir, 'posts.json');
+  if (!fs.existsSync(postsJsonPath)) {
+    fs.writeFileSync(postsJsonPath, JSON.stringify({ posts: [] }, null, 2));
+  }
+
+  const statusDataJsonPath = path.join(publicDir, 'statusData.json');
+  if (!fs.existsSync(statusDataJsonPath)) {
+    fs.writeFileSync(statusDataJsonPath, JSON.stringify({ status: [] }, null, 2));
+  }
+}
+
 // Connect to MongoDB and start server
 async function start() {
   try {
+    // Ensure directories and files exist first
+    ensureDirectoriesAndFiles();
+
     console.log(`NODE_ENV=${NODE_ENV}`);
     console.log(`FRONTEND_ORIGIN=${FRONTEND_ORIGIN}`);
-  console.log(`Attempting to connect to MongoDB...`);
-  // Recent MongoDB drivers no longer accept the legacy `keepAlive` option via
-  // mongoose.connect; omit it and let the driver manage connection keepalive.
-  await mongoose.connect(MONGODB_URI);
-  console.log('Connected to MongoDB');
+    console.log(`Attempting to connect to MongoDB...`);
+    // Configure connection pooling for better stability on serverless/free tier
+    await mongoose.connect(MONGODB_URI, {
+      maxPoolSize: 5,
+      minPoolSize: 1,
+      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS: 5000,
+      family: 4, // Use IPv4 by default
+    });
+    console.log('Connected to MongoDB');
 
     // Start listening after DB connection
     app.listen(port, () => {
@@ -236,6 +335,48 @@ app.post("/startupDataSave", upload.single("img"), (req, res) => {
       console.log(err);
     });
   addDataToJson(newStartup);
+
+  // If an image was uploaded, optionally push it to S3 and also write a local
+  // copy for backwards compatibility with routes that expect /uploads.
+  (async () => {
+    try {
+      if (req.file) {
+        const timestamp = Date.now();
+        const safeName = `${timestamp}_${req.file.originalname.replace(/\s+/g, "_")}`;
+        // Write local copy
+        try {
+          fs.writeFileSync(path.join(__dirname, "uploads", safeName), req.file.buffer);
+          console.log('Wrote local upload:', safeName);
+        } catch (e) {
+          console.error('Failed to write local upload:', e.message);
+        }
+
+        // Upload to S3 when available
+        if (s3Client && PutObjectCommand) {
+          try {
+            const Bucket = process.env.S3_BUCKET;
+            const Key = `uploads/${safeName}`;
+            await s3Client.send(new PutObjectCommand({
+              Bucket,
+              Key,
+              Body: req.file.buffer,
+              ContentType: req.file.mimetype,
+              ACL: process.env.S3_ACL || 'public-read',
+            }));
+            const region = process.env.AWS_REGION || 'us-east-1';
+            const publicUrl = process.env.S3_PUBLIC_URL || `https://${Bucket}.s3.${region}.amazonaws.com/${Key}`;
+            console.log('Uploaded file to S3:', publicUrl);
+            // store the s3 URL on the startup object if schema permits
+            try { newStartup.s3Image = publicUrl; await newStartup.save(); } catch (e) { /* non-fatal */ }
+          } catch (e) {
+            console.error('S3 upload failed:', e);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error processing uploaded file:', e);
+    }
+  })();
   res.redirect("/startupLogin");
 });
 //login-authentication
@@ -256,10 +397,7 @@ app.post("/startupAuthenticate", async function (req, res) {
         const result = password === user.password;
         if (result) {
           console.log('DB startup login success for', email);
-          if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
-            return res.redirect(`/dashboard?name=${encodeURIComponent(user.name)}`);
-          }
-          return res.redirect(`${FRONTEND_ORIGIN}/dashboard?name=${encodeURIComponent(user.name)}`);
+          return res.redirect(getRedirectUrl(`/dashboard?name=${encodeURIComponent(user.name)}`));
         }
         return res.redirect('/startupRegister');
       }
@@ -282,10 +420,7 @@ app.post("/startupAuthenticate", async function (req, res) {
     const found = users.find(u => u.email === email && String(u.password) === password);
     if (found) {
       console.log('Local fallback startup login success for', email);
-      if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
-        return res.redirect(`/dashboard?name=${encodeURIComponent(found.name)}`);
-      }
-      return res.redirect(`${FRONTEND_ORIGIN}/dashboard?name=${encodeURIComponent(found.name)}`);
+      return res.redirect(getRedirectUrl(`/dashboard?name=${encodeURIComponent(found.name)}`));
     }
     return res.redirect('/startupRegister');
   } catch (error) {
@@ -361,7 +496,7 @@ app.get("/send-data", async (req, res) => {
     console.log("pull");
   addPostDataToJson(allObjs);
   //   res.render("Backend/posts.ejs",{newPost});
-  res.redirect(`${FRONTEND_ORIGIN}/post`);
+  res.redirect(getRedirectUrl('/post'));
 });
 app.get("/sendPosData", async (req, res) => {
   const { name, message } = req.query;
@@ -385,7 +520,7 @@ app.get("/sendPosData", async (req, res) => {
     console.log("pull");
   addPostDataToJson(allObjs);
   //   res.render("Backend/posts.ejs",{newPost});
-  res.redirect(`${FRONTEND_ORIGIN}/post`);
+  res.redirect(getRedirectUrl('/post'));
 });
 app.post("/investorAuthenticate", async (req, res) => {
   console.log('POST /investorAuthenticate body:', req.body);
@@ -400,10 +535,7 @@ app.post("/investorAuthenticate", async (req, res) => {
         const result = password === user.password;
         if (result) {
           console.log('DB investor login success for', email);
-          if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
-            return res.redirect(`/investordashboard/profile?name=${encodeURIComponent(user.name)}`);
-          }
-          return res.redirect(`${FRONTEND_ORIGIN}/investordashboard/profile?name=${encodeURIComponent(user.name)}`);
+          return res.redirect(getRedirectUrl(`/investordashboard/profile?name=${encodeURIComponent(user.name)}`));
         }
         return res.redirect('/investorRegister');
       }
@@ -425,10 +557,7 @@ app.post("/investorAuthenticate", async (req, res) => {
     const found = users.find(u => u.email === email && String(u.password) === password);
     if (found) {
       console.log('Local fallback investor login success for', email);
-      if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
-        return res.redirect(`/investordashboard/profile?name=${encodeURIComponent(found.name)}`);
-      }
-      return res.redirect(`${FRONTEND_ORIGIN}/investordashboard/profile?name=${encodeURIComponent(found.name)}`);
+      return res.redirect(getRedirectUrl(`/investordashboard/profile?name=${encodeURIComponent(found.name)}`));
     }
     return res.render("/investorRegister");
   } catch (error) {
@@ -489,24 +618,13 @@ app.post("/govLogin", (req, res) => {
 
   if (validEmails.includes(email) && password === '12345') {
     console.log('Government login success for', email);
-    if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
-      return res.redirect('/startupStatus');
-    }
-    return res.redirect(`${FRONTEND_ORIGIN}/startupStatus`);
+    return res.redirect(getRedirectUrl('/startupStatus'));
   } else {
     console.log('Government login failed for', email);
     return res.send('wrong');
   }
 });
 
-// SPA fallback: when frontend is built, serve index.html for client routes
-if (fs.existsSync(frontendDist) && fs.existsSync(path.join(frontendDist, 'index.html'))) {
-  const spaApiPrefixes = ['/startupRegister','/startupLogin','/startupDataSave','/startupAuthenticate','/investorRegister','/investorLogin','/investorDataSave','/investorAuthenticate','/govLogin','/authlogin','/uploads','/Backend','/send-data','/sendPosData','/post-profile'];
-  app.get('*', (req, res, next) => {
-    if (spaApiPrefixes.some(p => req.path.startsWith(p))) return next();
-    return res.sendFile(path.join(frontendDist, 'index.html'));
-  });
-}
 app.get('/post-profile', async (req, res) => {
   const email = req.query.email;
 
@@ -520,10 +638,10 @@ app.get('/post-profile', async (req, res) => {
 
   if (data) {
     console.log("Redirecting to dashboard profile...");
-  return res.redirect(`${FRONTEND_ORIGIN}/dashboard/profile?name=${encodeURIComponent(data.name)}`);
+  return res.redirect(getRedirectUrl(`/dashboard/profile?name=${encodeURIComponent(data.name)}`));
   } else if (data1) {
     console.log("Redirecting to investor dashboard profile...");
-  return res.redirect(`${FRONTEND_ORIGIN}/investordashboard/profile?name=${encodeURIComponent(data1.name)}`);
+  return res.redirect(getRedirectUrl(`/investordashboard/profile?name=${encodeURIComponent(data1.name)}`));
   } else {
     console.log("User not found in either database.");
     return res.status(404).send("User not found");
@@ -1147,3 +1265,16 @@ app.get("/investorProfile", async (req, res) => {
   res.send(htmlResponse);
   // res.render("Backend/startupProfile.ejs",{user});
 });
+
+// SPA fallback: when frontend is built, serve index.html for client routes
+// This must be last, after all other routes
+if (isFrontendBuilt) {
+  const spaApiPrefixes = ['/startupRegister','/startupLogin','/startupDataSave','/startupAuthenticate','/investorRegister','/investorLogin','/investorDataSave','/investorAuthenticate','/govLogin','/authlogin','/uploads','/Backend','/send-data','/sendPosData','/post-profile','/update-status','/investment','/profile','/iProfile','/startupProfile','/investorProfile'];
+  app.get('*', (req, res, next) => {
+    // Skip API routes and static files
+    if (spaApiPrefixes.some(p => req.path.startsWith(p))) return next();
+    // Skip file extensions (static assets)
+    if (req.path.match(/\.[a-z]+$/i)) return next();
+    return res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}

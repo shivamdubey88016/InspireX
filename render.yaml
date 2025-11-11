@@ -1,12 +1,15 @@
 services:
+  # ---------- BACKEND (serves both API and frontend) ----------
   - type: web
-    name: InspireX-web
+    name: inspirex-backend
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: MONGODB_URI
-        fromDatabase: null
-      - key: FRONTEND_ORIGIN
-        value: "https://your-frontend-url.render.com"
+        sync: false
+      - key: NODE_ENV
+        value: "production"
+      # Note: FRONTEND_ORIGIN will use RENDER_EXTERNAL_URL automatically
+      # or set it manually in Render dashboard to your service URL after deployment
