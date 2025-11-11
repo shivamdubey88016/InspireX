@@ -554,10 +554,8 @@ app.get('/post-profile', async (req, res) => {
 //   //   res.render("Backend/posts.ejs",{newPost});
 //   res.redirect("http://localhost:3000/post");
 // });
-// Start server on configured port
-app.listen(port, () => {
-  console.log(`server is listening on port ${port}`);
-});
+// Note: server is started inside start() after DB connection to avoid
+// attempting to listen twice. Removed duplicate `app.listen` here.
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
