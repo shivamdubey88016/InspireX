@@ -283,3 +283,9 @@ Failed to start application: MongooseServerSelectionError: Could not connect to 
   },
   code: undefined
 }
+POST /govLogin body: [Object: null prototype] {
+  email: 'shivamdubey88016@gmail.com',
+  password: '12345',
+  submit: 'Submit'
+}
+Government login success for shivamdubey88016@gmail.com
