@@ -225,7 +225,7 @@ function List({ navColor }) {
           <li>
             <a
               className="dropdown-item"
-              href="http://localhost:3000/investors"
+              href="https://inspirex-3.onrender.com/investors"
               style={{ color: "#d2631f" }}
             >
               Browse Investors
