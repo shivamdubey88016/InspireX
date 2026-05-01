@@ -104,7 +104,7 @@ function List({ navColor }) {
           <li>
             <a
               className="dropdown-item "
-              href="http://localhost:8080/startupRegister"
+              href="https://inspirex-3.onrender.com/startupRegister"
               style={{ color: "#d2631f" }}
             >
               Startup Registration
@@ -118,7 +118,7 @@ function List({ navColor }) {
           <li>
             <a
               className="dropdown-item"
-              href="http://localhost:3000/investors"
+              href="https://inspirex-3.onrender.com/investors"
               style={{ color: "#d2631f" }}
             >
               Startup Funding
@@ -127,7 +127,7 @@ function List({ navColor }) {
           <li>
             <a
               className="dropdown-item"
-              href="http://localhost:3000/startups"
+              href="https://inspirex-3.onrender.com/startups"
               style={{ color: "#d2631f" }}
             >
               Collaboration Opportunities
@@ -216,7 +216,7 @@ function List({ navColor }) {
           <li>
             <a
               className="dropdown-item"
-              href="http://localhost:3000/startups"
+              href="https://inspirex-3.onrender.com/startups"
               style={{ color: "#d2631f" }}
             >
               Start Investing
@@ -234,7 +234,7 @@ function List({ navColor }) {
           <li>
             <a
               className="dropdown-item"
-              href="http://localhost:8080/investorRegister"
+              href="https://inspirex-3.onrender.com/investorRegister"
               style={{ color: "#d2631f" }}
             >
               Register as Invester

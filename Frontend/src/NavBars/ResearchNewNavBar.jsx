@@ -104,7 +104,7 @@ function List({ navColor }) {
           <li>
             <a
               className="dropdown-item "
-              href="http://localhost:8080/startupRegister"
+              href="https://inspirex-3.onrender.com/startupRegister"
               style={{ color: "#3c005a" }}
             >
               Startup Registration
@@ -234,7 +234,7 @@ function List({ navColor }) {
           <li>
             <a
               className="dropdown-item"
-              href="http://localhost:8080/investorRegister"
+              href="https://inspirex-3.onrender.com/investorRegister"
               style={{ color: "#3c005a" }}
             >
               Register as Invester

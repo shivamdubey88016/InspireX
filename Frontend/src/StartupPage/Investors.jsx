@@ -87,7 +87,7 @@ function Investor({ investor }) {
         },
         body: JSON.stringify(id),
       });
-      const re = await fetch("http://localhost:8080/iProfile", {
+      const re = await fetch("https://inspirex-3.onrender.com/iProfile", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -95,7 +95,7 @@ function Investor({ investor }) {
         body: JSON.stringify(id),
       });
 
-      const redirectUrl = `http://localhost:8080/investorProfile?name=${encodeURIComponent(
+      const redirectUrl = `https://inspirex-3.onrender.com/investorProfile?name=${encodeURIComponent(
         investor.name
       )}&email=${encodeURIComponent(investor.email)}`;
       window.location.href = redirectUrl;

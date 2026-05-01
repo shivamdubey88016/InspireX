@@ -28,7 +28,7 @@ function Post({ post, image }) {
     e.preventDefault(); // prevent default behavior of the Link
 
     try {
-      const url = `http://localhost:8080/post-profile?email=${encodeURIComponent(post.email)}`;
+      const url = `https://inspirex-3.onrender.com/post-profile?email=${encodeURIComponent(post.email)}`;
       const response = await fetch(url);
 
       if (response.ok) {

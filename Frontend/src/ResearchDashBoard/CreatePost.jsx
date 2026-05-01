@@ -8,7 +8,7 @@ function CreatePost() {
   const [message, setMessage] = useState("");
 
   const sendPosData = () => {
-    const url = `http://localhost:8080/sendPosData?name=${encodeURIComponent(
+    const url = `https://inspirex-3.onrender.com/sendPosData?name=${encodeURIComponent(
       name
     )}&message=${encodeURIComponent(message)}`;
 

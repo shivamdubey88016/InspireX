@@ -9,7 +9,7 @@ function InvestorCreatePost() {
   const [message, setMessage] = useState("");
 
   const sendData = () => {
-    const url = `http://localhost:8080/send-data?name=${encodeURIComponent(name)}&message=${encodeURIComponent(message)}`;
+    const url = `https://inspirex-3.onrender.com/send-data?name=${encodeURIComponent(name)}&message=${encodeURIComponent(message)}`;
     
     // You can either:
     // Option 1: Redirect to this URL (you'll see the response in the browser)

@@ -118,7 +118,7 @@ function Startup({ startup }) {
   //       body: JSON.stringify(id),
   //     });
 
-  //     const re = await fetch("http://localhost:8080/profile", {
+  //     const re = await fetch("https://inspirex-3.onrender.com/profile", {
   //       method: "POST",
   //       headers: {
   //         "Content-Type": "application/json",
@@ -126,7 +126,7 @@ function Startup({ startup }) {
   //       body: JSON.stringify(id),
   //     });
 
-  //     const redirectUrl = `http://localhost:8080/startupProfile?name=${encodeURIComponent(
+  //     const redirectUrl = `https://inspirex-3.onrender.com/startupProfile?name=${encodeURIComponent(
   //       startup.name
   //     )}&email=${encodeURIComponent(startup.email)}`;
   //     window.location.href = redirectUrl;

@@ -45,5 +45,5 @@ Enhancing Monitoring and Management of Research, IPR, Innovation, and Start-ups 
 This project enhances collaboration and transparency between startups, investors, researchers, and government bodies. It simplifies resource management, accelerates innovation, and ensures better monitoring.
 
 ## GitHub Link:
-[SIH-2024](https://github.com/dhruvishah122/SIH-2024)
+
 

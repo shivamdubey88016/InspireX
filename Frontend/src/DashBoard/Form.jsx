@@ -9,7 +9,7 @@ export default function Form() {
   const[id,setid]=useState();
   const handleSubmit = (e)=>{
     e.preventDefault()
-    axios.post('http://localhost:8080/investment',{investorName,startupName,fundingDetails,id})
+    axios.post('https://inspirex-3.onrender.com/investment',{investorName,startupName,fundingDetails,id})
     .then(alert("Successfully applied for funding"))
     .catch(err=>console.log(err));
   }

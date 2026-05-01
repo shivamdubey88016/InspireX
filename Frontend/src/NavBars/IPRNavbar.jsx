@@ -68,7 +68,7 @@ function IPRNavbar() {
                 className="dropdown-item"
                 type="button"
                 onClick={() =>
-                  (window.location.href = "http://localhost:8080/startupLogin")
+                  (window.location.href = "https://inspirex-3.onrender.com/startupLogin")
                 }
               >
                 Startup
@@ -79,7 +79,7 @@ function IPRNavbar() {
                 className="dropdown-item"
                 type="button"
                 onClick={() =>
-                  (window.location.href = "http://localhost:8080/investorLogin")
+                  (window.location.href = "https://inspirex-3.onrender.com/investorLogin")
                 }
               >
                 Investor
@@ -97,7 +97,7 @@ function IPRNavbar() {
                 type="button"
                 style={{ color: "#800080" }}
                 onClick={() =>
-                  (window.location.href = "http://localhost:8080/authlogin")
+                  (window.location.href = "https://inspirex-3.onrender.com/authlogin")
                 }
               >
                 Government authority
@@ -146,7 +146,7 @@ function List({ navColor }) {
           <li>
             <a
               className="dropdown-item "
-              href="http://localhost:8080/startupRegister"
+              href="https://inspirex-3.onrender.com/startupRegister"
               style={{ color: "#800080" }}
             >
               Startup Registration
@@ -276,7 +276,7 @@ function List({ navColor }) {
           <li>
             <a
               className="dropdown-item"
-              href="http://localhost:8080/investorRegister"
+              href="https://inspirex-3.onrender.com/investorRegister"
               style={{ color: "#800080" }}
             >
               Register as Invester

@@ -128,7 +128,7 @@ const StatusTable = () => {
     // Send the updated object to the Node server
     const updatedObject = updatedRows[index]; // Get the updated object
 
-    fetch("http://localhost:8080/update-status", {
+    fetch("https://inspirex-3.onrender.com/update-status", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
