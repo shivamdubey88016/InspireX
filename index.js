@@ -32,7 +32,7 @@ if (NODE_ENV === 'production' && !MONGODB_URI) {
 // CORS configuration - since backend serves frontend, they're on same origin
 // But we still enable CORS for API flexibility
 app.use(cors({
-  origin: NODE_ENV === 'production' ? FRONTEND_ORIGIN : true,
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
   credentials: true
 }));
 const multer = require("multer");
