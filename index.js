@@ -73,10 +73,7 @@ const isFrontendBuilt = fs.existsSync(frontendDist) && fs.existsSync(path.join(f
 
 // Helper function to get redirect URL - use relative path if frontend is built, otherwise use FRONTEND_ORIGIN
 function getRedirectUrl(path) {
-  if (isFrontendBuilt) {
-    return path; // Relative path when frontend is served by backend
-  }
-  return `${FRONTEND_ORIGIN}${path.startsWith('/') ? path : '/' + path}`;
+  return path; // always relative (fixes Render issue)
 }
 
 if (isFrontendBuilt) {
@@ -151,30 +148,29 @@ function ensureDirectoriesAndFiles() {
 // Connect to MongoDB and start server
 async function start() {
   try {
-    // Ensure directories and files exist first
     ensureDirectoriesAndFiles();
 
     console.log(`NODE_ENV=${NODE_ENV}`);
-    console.log(`FRONTEND_ORIGIN=${FRONTEND_ORIGIN}`);
     console.log(`Attempting to connect to MongoDB...`);
-    // Configure connection pooling for better stability on serverless/free tier
-    await mongoose.connect(MONGODB_URI, {
+
+    // ✅ Start server FIRST (IMPORTANT for Render)
+    app.listen(port, () => {
+      console.log(`Server is listening on port ${port}`);
+    });
+
+    // ✅ Then connect DB
+    mongoose.connect(MONGODB_URI, {
       maxPoolSize: 5,
       minPoolSize: 1,
       socketTimeoutMS: 45000,
       serverSelectionTimeoutMS: 5000,
-      family: 4, // Use IPv4 by default
-    });
-    console.log('Connected to MongoDB');
+      family: 4,
+    })
+    .then(() => console.log("MongoDB connected"))
+    .catch(err => console.error("MongoDB error:", err.message));
 
-    // Start listening after DB connection
-    app.listen(port, () => {
-      console.log(`Server is listening on port ${port}`);
-    });
   } catch (err) {
     console.error('Failed to start application:', err);
-    // In production exit so the platform (Render) can restart
-    if (NODE_ENV === 'production') process.exit(1);
   }
 }
 
